@@ -1,0 +1,33 @@
+-- Create transcript table
+CREATE TABLE IF NOT EXISTS transcript (
+    id SERIAL PRIMARY KEY,
+    video_id VARCHAR(20) NOT NULL,
+    youtube_url TEXT NOT NULL,
+    formatted_transcript TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(video_id)
+);
+
+-- Create transcript_analysis table
+CREATE TABLE IF NOT EXISTS transcript_analysis (
+    id SERIAL PRIMARY KEY,
+    transcript_id INTEGER REFERENCES transcript(id),
+    game_location TEXT,
+    stakes TEXT,
+    caller_cards TEXT,
+    preflop_action JSONB,
+    preflop_commentary TEXT,
+    flop_cards TEXT,
+    flop_action JSONB,
+    flop_commentary TEXT,
+    turn_card TEXT,
+    turn_action JSONB,
+    turn_commentary TEXT,
+    river_card TEXT,
+    river_action JSONB,
+    river_commentary TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index for transcript lookup
+CREATE INDEX idx_transcript_analysis_transcript_id ON transcript_analysis(transcript_id);

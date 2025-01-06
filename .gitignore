@@ -25,3 +25,5 @@ venv
 *.pyc
 hostinger_vps.txt
 node_modules
+*.conf
+*.bat

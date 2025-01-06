@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { getYouTubeTranscript } from '../utils/helpers';
 import '../styles/Clp_transcripts.css';
+
+
 
 const ClpTranscripts = () => {
   const [url, setUrl] = useState('');
@@ -14,8 +15,19 @@ const ClpTranscripts = () => {
     setLoading(true);
 
     try {
-      const result = await getYouTubeTranscript(url);
-      setTranscript(result);
+      const response = await fetch(`{}/api/transcript?url=${encodeURIComponent(url)}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch transcript');
+      }
+
+      // Format transcript data
+      const formattedTranscript = data.transcript
+        .map(segment => `${segment.timestamp} ${segment.text}`)
+        .join('\n');
+      
+      setTranscript(formattedTranscript);
     } catch (err) {
       setError(err.message || 'Failed to fetch transcript');
     } finally {
