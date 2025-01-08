@@ -11,8 +11,10 @@ logger = logging.getLogger(__name__)
 class TranscriptController:
     def __init__(self):
         self.claude = ClaudeService()
+        self.analysis = None
+        self.transcript = None
 
-    def store_transcript(self, youtube_url):
+    def get_transcript(self, youtube_url):
         """
         Stores YouTube transcript in database
         Returns: (response_dict, status_code)
@@ -24,32 +26,50 @@ class TranscriptController:
                 logger.error(f"Failed to get transcript: {transcript_result['error']}")
                 return {'error': transcript_result['error']}, 400
                 
-            conn = get_db_connection()
-            try:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        INSERT INTO transcript (video_id, youtube_url, formatted_transcript)
-                        VALUES (%s, %s, %s)
-                        RETURNING id
-                    """, (transcript_result['video_id'], 
-                          youtube_url, 
-                          transcript_result['formatted_transcript']))
-                    transcript_id = cur.fetchone()[0]
-                conn.commit()
+            # conn = get_db_connection()
+            # try:
+            #     with conn.cursor() as cur:
+            #         cur.execute("""
+            #             SELECT id 
+            #             FROM transcript 
+            #             WHERE video_id = %s
+            #         """, (transcript_result['video_id'],))
+            #         existing = cur.fetchone()
                     
-                return {
-                    'transcript_id': transcript_id,
-                    'message': 'Transcript stored successfully'
-                }, 201
+            #         if existing:
+            #             return {
+            #                 'transcript_id': existing[0],
+            #                 'message': 'Transcript already exists'
+            #             }, 200
+                
+
+            #     with conn.cursor() as cur:
+            #         cur.execute("""
+            #             INSERT INTO transcript (video_id, youtube_url, formatted_transcript)
+            #             VALUES (%s, %s, %s)
+            #             RETURNING id
+            #         """, (transcript_result['video_id'], 
+            #               youtube_url, 
+            #               transcript_result['formatted_transcript']))
+            #         transcript_id = cur.fetchone()[0]
+            #     conn.commit()
+            if not transcript_result['success']:
+                return False
             
-            finally:
-                conn.close()
+            if not 'formatted_transcript' in transcript_result:
+                return False
+            
+            self.transcript = transcript_result['formatted_transcript']
+            return True
+            
+        # finally:
+        #     conn.close()
             
         except Exception as e:
             logger.error(f"Error storing transcript: {str(e)}")
-            return {'error': str(e)}, 500
+            return {'message': str(e)}
 
-    def analyze_transcript(self, transcript_id):
+    def analyze_transcript(self, transcript_id, transcript_text):
         """
         Analyzes poker transcript using Claude
         Returns: (response_dict, status_code)
@@ -57,22 +77,10 @@ class TranscriptController:
         try:
             conn = get_db_connection()
             try:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        SELECT formatted_transcript 
-                        FROM transcript 
-                        WHERE id = %s
-                    """, (transcript_id,))
-                    result = cur.fetchone()
-                    
-                if not result:
-                    return {'error': 'Transcript not found'}, 404
-                    
-                transcript_text = result[0]
                 
                 # Get analysis from Claude
                 analysis = self._analyze_with_claude(transcript_text)
-                
+                self.analysis = analysis
                 # Store analysis
                 with conn.cursor() as cur:
                     cur.execute("""
@@ -107,31 +115,80 @@ class TranscriptController:
         """
         prompt = f"""
         Analyze this poker hand transcript and extract the following information.
-        Return ONLY a JSON object with the following structure:
-        {{
-            "game_location": "string",
-            "stakes": "string",
-            "caller_cards": "string",
-            "preflop_action": {{}},
-            "preflop_commentary": "string",
-            "flop_cards": "string",
-            "flop_action": {{}},
-            "flop_commentary": "string",
-            "turn_card": "string",
-            "turn_action": {{}},
-            "turn_commentary": "string",
-            "river_card": "string",
-            "river_action": {{}},
-            "river_commentary": "string"
-        }}
-        
+        Return ONLY the information in this XML structure:
+
+        <analysis>
+            <game_location>location string</game_location>
+            <stakes>stakes string</stakes>
+            <caller_cards>cards string</caller_cards>
+            
+            <preflop>
+                <action>detailed action string</action>
+                <commentary>Bart's commentary string</commentary>
+            </preflop>
+            
+            <flop>
+                <cards>flop cards string</cards>
+                <action>detailed action string</action>
+                <commentary>Bart's commentary string</commentary>
+            </flop>
+            
+            <turn>
+                <card>turn card string</card>
+                <action>detailed action string</action>
+                <commentary>Bart's commentary string</commentary>
+            </turn>
+            
+            <river>
+                <card>river card string</card>
+                <action>detailed action string</action>
+                <commentary>Bart's commentary string</commentary>
+            </river>
+        </analysis>
+
         Analyze this poker hand transcript:
         {transcript_text}
         """
         
         try:
             response = self.claude.complete(prompt)
-            return response
+            # Would need to parse XML response here before returning
+            # Could use xml.etree.ElementTree or similar
+            return self._parse_xml_response(response)
         except Exception as e:
             logger.error(f"Error from Claude API: {str(e)}")
             raise
+
+    def _parse_xml_response(self, response):
+        """
+        Parse XML response into dictionary structure matching our database schema
+        """
+        import xml.etree.ElementTree as ET
+        from io import StringIO
+        
+        try:
+            # Parse XML string
+            tree = ET.parse(StringIO(response))
+            root = tree.getroot()
+            
+            # Extract values into dict matching our database structure
+            return {
+                'game_location': root.find('game_location').text,
+                'stakes': root.find('stakes').text,
+                'caller_cards': root.find('caller_cards').text,
+                'preflop_action': root.find('preflop/action').text,
+                'preflop_commentary': root.find('preflop/commentary').text,
+                'flop_cards': root.find('flop/cards').text,
+                'flop_action': root.find('flop/action').text,
+                'flop_commentary': root.find('flop/commentary').text,
+                'turn_card': root.find('turn/card').text,
+                'turn_action': root.find('turn/action').text,
+                'turn_commentary': root.find('turn/commentary').text,
+                'river_card': root.find('river/card').text,
+                'river_action': root.find('river/action').text,
+                'river_commentary': root.find('river/commentary').text
+            }
+        except Exception as e:
+            logger.error(f"Error parsing XML response: {str(e)}")
+            logger.debug(f"Raw response: {response}")
+            raise ValueError("Failed to parse Claude's XML response")

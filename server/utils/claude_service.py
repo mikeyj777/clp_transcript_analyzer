@@ -15,7 +15,7 @@ class ClaudeService:
         if not self.api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
         self.client = Anthropic(api_key=self.api_key)
-        self.model = "claude-3-sonnet-20241022"
+        self.model = "claude-3-5-sonnet-20241022"
         self.system_prompt = """You are a poker hand analyzer. Your task is to extract structured information from poker hand transcripts.
         Focus on identifying:
         1. Game location and stakes
