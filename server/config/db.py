@@ -26,6 +26,7 @@ def get_db_connection():
             database="clp",
             user="postgres",
             password=Pwds.pg_pwd,
-            port="5432"
+            port="5432",
+            client_encoding="utf-8"
         )
     return conn

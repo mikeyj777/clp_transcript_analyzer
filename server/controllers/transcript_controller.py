@@ -67,7 +67,7 @@ class TranscriptController:
             logger.error(f"Error storing transcript: {str(e)}")
             return {'message': str(e)}
 
-    def analyze_transcript(self, transcript_text, transcript_id):
+    def analyze_transcript(self, transcript_text, url):
         """
         Analyzes poker transcript using Claude
         Returns: (response_dict, status_code)
@@ -83,14 +83,14 @@ class TranscriptController:
                 with conn.cursor() as cur:
                     cur.execute("""
                         INSERT INTO transcript_analysis 
-                        (transcript_id, game_location, stakes, caller_cards,
+                        (url, game_location, stakes, caller_cards,
                          preflop_action, preflop_commentary,
                          flop_cards, flop_action, flop_commentary,
                          turn_card, turn_action, turn_commentary,
                          river_card, river_action, river_commentary)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id
-                    """, (transcript_id, *analysis.values()))
+                    """, (url, *analysis.values()))
                     analysis_id = cur.fetchone()[0]
                 conn.commit()
                 

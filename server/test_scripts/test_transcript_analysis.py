@@ -9,32 +9,30 @@ from controllers.transcript_controller import TranscriptController
 
 vids_df = pd.read_csv('data/clp_vids.csv')
 
-fieldnames = ['analysis_id', 'transcript_id', 'yt_url']
+fieldnames = ['analysis_id', 'yt_url']
 completed_analyses = pd.DataFrame(columns=fieldnames)
 latest_analyses = []
-transcript_id = 0
 header_written = False
 
 try:
   completed_analyses = pd.read_csv('data/completed_analyses.csv')
-  transcript_id = completed_analyses['transcript_id'].max() + 1
   header_written = True
 except Exception as e:
   print(e)
 
 def get_and_process_transcript(yt_url):
-  global transcript_id
   global latest_analyses
+  global header_written
   tc = TranscriptController()
   res = tc.get_transcript(yt_url)
   if not res:
     return
   transcript = tc.transcript
-  analysis_res = tc.analyze_transcript(transcript, transcript_id)
-  if analysis_res[1] != 200:
+  analysis_res = tc.analyze_transcript(transcript, yt_url)
+  if analysis_res[1] != 201:
     return
-  latest_analyses.append({'analysis_id': analysis_res['analysis_id'], 'transcript_id': transcript_id, 'yt_url': yt_url})
-  transcript_id += 1
+  analysis_res = analysis_res[0]
+  latest_analyses.append({'analysis_id': analysis_res['analysis_id'], 'yt_url': yt_url})
   try:
     with open('data/completed_analyses.csv', 'a', newline='') as csvfile:
       writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
