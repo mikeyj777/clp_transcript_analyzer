@@ -45,22 +45,8 @@ class ClaudeService:
             try:
                 # Claude should return a JSON string, but let's be defensive
                 response_text = message.content[0].text
-                analysis = json.loads(response_text)
                 
-                # Validate required fields
-                required_fields = {
-                    'game_location', 'stakes', 'caller_cards',
-                    'preflop_action', 'preflop_commentary',
-                    'flop_cards', 'flop_action', 'flop_commentary',
-                    'turn_card', 'turn_action', 'turn_commentary',
-                    'river_card', 'river_action', 'river_commentary'
-                }
-                
-                missing_fields = required_fields - set(analysis.keys())
-                if missing_fields:
-                    raise ValueError(f"Missing required fields in Claude response: {missing_fields}")
-                
-                return analysis
+                return response_text
                 
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse Claude response as JSON: {e}")

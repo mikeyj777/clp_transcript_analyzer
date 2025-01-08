@@ -24,7 +24,7 @@ class TranscriptController:
             
             if not transcript_result['success']:
                 logger.error(f"Failed to get transcript: {transcript_result['error']}")
-                return {'error': transcript_result['error']}, 400
+                return False
                 
             # conn = get_db_connection()
             # try:
@@ -53,8 +53,6 @@ class TranscriptController:
             #               transcript_result['formatted_transcript']))
             #         transcript_id = cur.fetchone()[0]
             #     conn.commit()
-            if not transcript_result['success']:
-                return False
             
             if not 'formatted_transcript' in transcript_result:
                 return False
@@ -69,7 +67,7 @@ class TranscriptController:
             logger.error(f"Error storing transcript: {str(e)}")
             return {'message': str(e)}
 
-    def analyze_transcript(self, transcript_id, transcript_text):
+    def analyze_transcript(self, transcript_text, transcript_id):
         """
         Analyzes poker transcript using Claude
         Returns: (response_dict, status_code)
@@ -115,6 +113,9 @@ class TranscriptController:
         """
         prompt = f"""
         Analyze this poker hand transcript and extract the following information.
+        For each commentary section, provide detailed analysis of at least 500 characters, capturing Bart's full analysis, 
+        strategic insights, and explanations of the action. Include any relevant player tendencies, pot odds discussions,
+        or strategic concepts Bart mentions.
         Return ONLY the information in this XML structure:
 
         <analysis>
