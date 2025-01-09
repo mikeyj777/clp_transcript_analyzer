@@ -18,3 +18,22 @@ CREATE TABLE IF NOT EXISTS transcript_analysis (
     river_commentary TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add pgvector extension if not already present
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Create the table
+CREATE TABLE hand_embeddings (
+    id SERIAL PRIMARY KEY,
+    hand_analysis_id INTEGER REFERENCES transcript_analysis(id),  -- Changed from hand_analysis to transcript_analysis
+    embedding_type VARCHAR(50),
+    embedding vector(1536),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create standard index on foreign key
+CREATE INDEX IF NOT EXISTS hand_embeddings_hand_id_idx ON hand_embeddings(hand_analysis_id);
+
+-- Create vector similarity search index
+CREATE INDEX IF NOT EXISTS hand_embeddings_embedding_idx ON hand_embeddings 
+USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
