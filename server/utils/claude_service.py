@@ -19,7 +19,7 @@ class ClaudeService:
         self.system_prompt = """You are a poker hand analyzer. Your task is to extract structured information from poker hand transcripts.
         Focus on identifying:
         1. Game location and stakes
-        2. The caller's hole cards
+        2. The caller's hole cards (Format them consistently: if suited, list both cards with explicit suits, e.g. 'Queen Jack of Hearts' should be written as 'Jack of Hearts and Queen of Hearts'. Always list the lower rank card first.)
         3. Street by street action including positions and betting
         4. Commentary from Bart
         Keep your analysis precise and poker-specific."""

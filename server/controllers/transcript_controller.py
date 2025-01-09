@@ -121,7 +121,7 @@ class TranscriptController:
         <analysis>
             <game_location>location string</game_location>
             <stakes>stakes string</stakes>
-            <caller_cards>cards string</caller_cards>
+            <caller_cards>cards string.  lower rank card first, with explicit suits for both cards.  For example "Jack of Hearts and Queen of Hearts".</caller_cards>
             
             <preflop>
                 <action>detailed action string</action>
