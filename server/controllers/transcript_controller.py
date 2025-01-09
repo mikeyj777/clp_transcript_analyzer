@@ -116,6 +116,7 @@ class TranscriptController:
         For each commentary section, provide detailed analysis of at least 500 characters, capturing Bart's full analysis, 
         strategic insights, and explanations of the action. Include any relevant player tendencies, pot odds discussions,
         or strategic concepts Bart mentions.
+        Do not use any non-unicode characters.  For example, when describing the suit of a card spell out the suit such as Hearts.  Do not use an icon to represent the suit.
         Return ONLY the information in this XML structure:
 
         <analysis>
