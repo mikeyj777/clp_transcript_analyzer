@@ -22,12 +22,15 @@ CREATE TABLE IF NOT EXISTS transcript_analysis (
 -- Add pgvector extension if not already present
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- uncomment the drop commands to remove the current table
+-- DROP INDEX hand_embeddings_hand_id_idx;
+-- DROP TABLE hand_embeddings;
 -- Create the table
 CREATE TABLE hand_embeddings (
     id SERIAL PRIMARY KEY,
     hand_analysis_id INTEGER REFERENCES transcript_analysis(id),  -- Changed from hand_analysis to transcript_analysis
     embedding_type VARCHAR(50),
-    embedding vector(1536),
+    embedding vector(1024),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

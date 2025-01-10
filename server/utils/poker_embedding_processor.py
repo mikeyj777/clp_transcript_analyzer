@@ -1,11 +1,13 @@
-import pandas as pd
-from anthropic import Anthropic
-import numpy as np
 from typing import Dict, List, Tuple
+import pandas as pd
+import numpy as np
+import voyageai
+
 
 class PokerEmbeddingProcessor:
     def __init__(self, api_key: str):
-        self.client = Anthropic(api_key=api_key)
+        self.api_key = api_key
+        self.client = voyageai.Client(api_key=self.api_key)
     
     def create_street_based_chunks(self, hand: Dict) -> List[str]:
         """Street-based chunking strategy"""
@@ -80,14 +82,53 @@ class PokerEmbeddingProcessor:
                 ))
         
         return chunks
-    
-    def get_embeddings(self, chunks: List[Tuple[str, str]]) -> Dict:
-        """Generate embeddings for chunks using Anthropic's API"""
+
+    def get_embeddings(
+            self,
+            chunks: List[Tuple[str, str]],
+            model: str = "voyage-3",
+            batch_size: int = 128
+        ) -> Dict[str, List[float]]:
+        """
+        Generate embeddings for the given chunks using Voyage AI API.
+        
+        Args:
+            chunks: List of tuples containing (chunk_type, chunk_text)
+            model: Model to use for embeddings (default: voyage-3)
+            batch_size: Number of chunks to process in each batch
+            
+        Returns:
+            Dictionary mapping chunk_types to their embedding vectors
+        """
+        
         embeddings = {}
-        for chunk_type, text in chunks:
-            embedding = self.client.embeddings.create(
-                input=[text],
-                model="claude-3-5-sonnet-20241022"
-            ).data[0].embedding
-            embeddings[chunk_type] = embedding
+        
+        # Group texts by chunk type
+        texts = [text for _, text in chunks]
+        chunk_types = [chunk_type for chunk_type, _ in chunks]
+        
+        # Initialize Voyage client
+        vo = self.client
+        
+        # Process in batches
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            batch_chunk_types = chunk_types[i:i + batch_size]
+            
+            try:
+                # Generate embeddings for the batch using Voyage API
+                result = vo.embed(
+                    batch,
+                    model=model,
+                    input_type="document"  # Using document type since these are text chunks
+                )
+                
+                # Map embeddings to their chunk types
+                for chunk_type, embedding in zip(batch_chunk_types, result.embeddings):
+                    embeddings[chunk_type] = embedding
+                    
+            except Exception as e:
+                print(f"Error generating embeddings for batch {i//batch_size}: {str(e)}")
+                raise
+        
         return embeddings

@@ -77,7 +77,7 @@ def main():
         logger.info(f"Read {len(df)} rows from transcript_analysis")
         
         # Initialize the embedding processor with your API key
-        api_key = Pwds.ANTRHOPIC_API_KEY
+        api_key = Pwds.VOYAGE_AI_API_KEY
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable not set")
             
@@ -86,6 +86,8 @@ def main():
         # Process each hand
         for idx, row in df.iterrows():
             try:
+                if row['id'] < 347:
+                    continue
                 logger.info(f"Processing hand {row['id']}")
                 
                 # Prepare hand data
