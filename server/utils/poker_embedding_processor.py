@@ -3,6 +3,11 @@ import pandas as pd
 import numpy as np
 import voyageai
 
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class PokerEmbeddingProcessor:
     def __init__(self, api_key: str):
@@ -83,52 +88,55 @@ class PokerEmbeddingProcessor:
         
         return chunks
 
-    def get_embeddings(
-            self,
-            chunks: List[Tuple[str, str]],
-            model: str = "voyage-3",
-            batch_size: int = 128
-        ) -> Dict[str, List[float]]:
-        """
-        Generate embeddings for the given chunks using Voyage AI API.
+def get_embeddings(
+        self,
+        chunks: List[Tuple[str, str]],
+        model: str = "voyage-3-large",
+        batch_size: int = 128,
+        input_type: str = "document"  # Default to document for hand storage
+    ) -> Dict[str, List[float]]:
+    """
+    Generate embeddings for the given chunks using Voyage AI API.
+    
+    Args:
+        chunks: List of tuples containing (chunk_type, chunk_text)
+        model: Model to use for embeddings (default: voyage-3-large)
+        batch_size: Number of chunks to process in each batch
+        input_type: Type of input for embedding ("query" or "document")
+            - "query": Optimized for short search queries
+            - "document": Optimized for longer content (default)
         
-        Args:
-            chunks: List of tuples containing (chunk_type, chunk_text)
-            model: Model to use for embeddings (default: voyage-3)
-            batch_size: Number of chunks to process in each batch
+    Returns:
+        Dictionary mapping chunk_types to their embedding vectors
+    """
+    if input_type not in ["query", "document"]:
+        raise ValueError("input_type must be either 'query' or 'document'")
+        
+    embeddings = {}
+    texts = [text for _, text in chunks]
+    chunk_types = [chunk_type for chunk_type, _ in chunks]
+    
+    # For queries, we want to use shorter, more focused text
+    if input_type == "query":
+        # Truncate and focus the text for query embeddings
+        texts = [text[:512] for text in texts]  # Arbitrary limit, adjust as needed
+    
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        batch_chunk_types = chunk_types[i:i + batch_size]
+        
+        try:
+            result = self.client.embed(
+                input=batch,
+                model=model,
+                input_type=input_type
+            )
             
-        Returns:
-            Dictionary mapping chunk_types to their embedding vectors
-        """
-        
-        embeddings = {}
-        
-        # Group texts by chunk type
-        texts = [text for _, text in chunks]
-        chunk_types = [chunk_type for chunk_type, _ in chunks]
-        
-        # Initialize Voyage client
-        vo = self.client
-        
-        # Process in batches
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
-            batch_chunk_types = chunk_types[i:i + batch_size]
-            
-            try:
-                # Generate embeddings for the batch using Voyage API
-                result = vo.embed(
-                    batch,
-                    model=model,
-                    input_type="document"  # Using document type since these are text chunks
-                )
+            for chunk_type, embedding in zip(batch_chunk_types, result.embeddings):
+                embeddings[chunk_type] = embedding
                 
-                # Map embeddings to their chunk types
-                for chunk_type, embedding in zip(batch_chunk_types, result.embeddings):
-                    embeddings[chunk_type] = embedding
-                    
-            except Exception as e:
-                print(f"Error generating embeddings for batch {i//batch_size}: {str(e)}")
-                raise
-        
-        return embeddings
+        except Exception as e:
+            logger.error(f"Error generating embeddings for batch {i//batch_size}: {str(e)}")
+            raise
+    
+    return embeddings
