@@ -14,25 +14,31 @@ class PokerEmbeddingProcessor:
         self.api_key = api_key
         self.client = voyageai.Client(api_key=self.api_key)
     
-    def create_street_based_chunks(self, hand: Dict) -> List[str]:
+    def create_street_based_chunks(self, hand: Dict = {}, structured_query = None) -> List[str]:
         """Street-based chunking strategy"""
         chunks = []
         
         # Context chunk
-        context = f"Game: {hand['game_location']}, Stakes: {hand['stakes']}, "
-        context += f"Hero Cards: {hand['caller_cards']}"
-        chunks.append(('context', context))
+        context = ''
+        if len(hand) == 0 and not structured_query:
+            return chunks
+        if len(hand) == 0:
+            chunks.append(('context', structured_query))
+        else:
+            context = f"Game: {hand['game_location']}, Stakes: {hand['stakes']}, "
+            context += f"Hero Cards: {hand['caller_cards']}"
+            chunks.append(('context', context))
         
-        # Street chunks
-        streets = ['preflop', 'flop', 'turn', 'river']
-        for street in streets:
-            action = hand.get(f'{street}_action', '')
-            commentary = hand.get(f'{street}_commentary', '')
-            if action or commentary:
-                chunks.append((
-                    street,
-                    f"{street.upper()}: Action: {action} Commentary: {commentary}"
-                ))
+            # Street chunks
+            streets = ['preflop', 'flop', 'turn', 'river']
+            for street in streets:
+                action = hand.get(f'{street}_action', '')
+                commentary = hand.get(f'{street}_commentary', '')
+                if action or commentary:
+                    chunks.append((
+                        street,
+                        f"{street.upper()}: Action: {action} Commentary: {commentary}"
+                    ))
         
         return chunks
     

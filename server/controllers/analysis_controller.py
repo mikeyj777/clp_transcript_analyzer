@@ -25,9 +25,10 @@ def prepare_query_for_search(query: str) -> Dict:
         Query: {query}
         
         Format the output as a structured hand with game_location, stakes, caller_cards, and actions/commentary for each street."""
-        
+        logging.debug(f'prompt to Claude: {prompt}')
         response = claude_service.complete(prompt)
-        return eval(response)  # Consider using json.loads with proper formatting
+        logging.debug(f'Claude response: {response}')
+        return response  # Consider using json.loads with proper formatting
     except Exception as e:
         logger.error(f"Error preparing query with Claude: {e}")
         return {}
@@ -215,3 +216,9 @@ def hand_analysis(query: str, num_results: int = 5):
             "status": "error",
             "result": "An error occurred during analysis. Please try again later."
         })
+
+def main():
+    test_query = "in the big blind wit h"
+
+if __name__ == "__main__":
+    main()

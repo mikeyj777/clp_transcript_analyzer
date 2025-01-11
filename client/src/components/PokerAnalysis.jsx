@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
+
 const PokerAnalysis = () => {
   const [userInput, setUserInput] = useState('');
   const [response, setResponse] = useState('');
@@ -12,7 +14,7 @@ const PokerAnalysis = () => {
     setError('');
     
     try {
-      const response = await fetch('/api/analyze', {
+      const response = await fetch(`${REACT_APP_API_URL}/api/analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

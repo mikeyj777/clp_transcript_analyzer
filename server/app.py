@@ -36,9 +36,10 @@ def transcript_route():
         }), 400
     return get_transcript(url)
 
-@app.route('/api/analyze', methods=['GET'])
+@app.route('/api/analyze', methods=['POST'])
 def transcript_analysis_route():
-    query = request.args.get('userInput')
+    data = request.get_json()  # For POST request with JSON body
+    query = data.get('query')
     logger.info(f"Received query: {query}")
     if not query:
         return jsonify({
