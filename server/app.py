@@ -40,7 +40,7 @@ def transcript_route():
 def transcript_analysis_route():
     data = request.get_json()  # For POST request with JSON body
     query = data.get('query')
-    logger.info(f"Received query: {query}")
+    logger.debug(f"Received query: {query}")
     if not query:
         return jsonify({
             "status": "error",

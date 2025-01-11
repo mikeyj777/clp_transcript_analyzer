@@ -77,7 +77,7 @@ class TranscriptController:
             try:
                 
                 # Get analysis from Claude
-                analysis = self._analyze_with_claude(transcript_text)
+                analysis = self.analyze_with_claude(transcript_text)
                 self.analysis = analysis
                 # Store analysis
                 with conn.cursor() as cur:
@@ -106,14 +106,17 @@ class TranscriptController:
             logger.error(f"Error analyzing transcript: {str(e)}")
             return {'error': str(e)}, 500
 
-    def _analyze_with_claude(self, transcript_text):
+    def analyze_with_claude(self, transcript_text):
         """
         Private method to handle Claude API interaction
         Returns structured analysis dict
         """
         prompt = f"""
         Analyze this poker hand transcript and extract the following information.
-        For each commentary section, provide detailed analysis of at least 500 characters, capturing Bart's full analysis, 
+        Some portions may be missing.  If so, include the element and provide a placeholder value stating "not included".
+        Some transcripts will only be hand setups and no commentary.  These are detailing the action at the table and are going to be used to query a database for matching hands.
+        Again, include all element tags and use the placeholder stating "not included" if they are missing.
+        For each commentary section if commentary is incuded in the transcript, provide detailed analysis of at least 500 characters, capturing Bart's full analysis, 
         strategic insights, and explanations of the action. Include any relevant player tendencies, pot odds discussions,
         or strategic concepts Bart mentions.
         Do not use any non-unicode characters.  For example, when describing the suit of a card spell out the suit such as Hearts.  Do not use an icon to represent the suit.

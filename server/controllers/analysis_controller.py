@@ -7,6 +7,7 @@ from config.db import get_db_connection
 from utils.poker_embedding_processor import PokerEmbeddingProcessor
 from utils.claude_service import ClaudeService
 from data.pwds import Pwds
+from controllers.transcript_controller import TranscriptController
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -15,18 +16,14 @@ logger = logging.getLogger(__name__)
 # Initialize services
 claude_service = ClaudeService()
 embedding_processor = PokerEmbeddingProcessor(api_key=Pwds.VOYAGE_AI_API_KEY)
+tc = TranscriptController()
 
 def prepare_query_for_search(query: str) -> Dict:
     """
     Use Claude to prepare the query for searching similar hands
     """
     try:
-        prompt = f"""Convert this poker hand query into a structured format. These will mostly be texas hold em hands.  however, there may be some Omaha hands.  they may even be asking some poker philosophical questions.  Include all relevant fields even if empty.  It may only have partial information available for the hand or may be asking philosophical questions.  If so, make a structured response based on the portions of the poker hand provided or other information provided.
-        Query: {query}
-        
-        Format the output as a structured hand with game_location, stakes, caller_cards, and actions/commentary for each street."""
-        logging.debug(f'prompt to Claude: {prompt}')
-        response = claude_service.complete(prompt)
+        response = tc.analyze_with_claude(query)
         logging.debug(f'Claude response: {response}')
         return response  # Consider using json.loads with proper formatting
     except Exception as e:
@@ -218,7 +215,7 @@ def hand_analysis(query: str, num_results: int = 5):
         })
 
 def main():
-    test_query = "in the big blind wit h"
+    test_query = "in the big blind with two black aces"
 
 if __name__ == "__main__":
     main()
