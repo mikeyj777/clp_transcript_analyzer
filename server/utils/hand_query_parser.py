@@ -1,9 +1,8 @@
 from typing import Dict, Optional
 import re
 
-
 class HandQueryParser:
-    """Parses poker hand queries to match stored hand analysis format"""
+    """Parses poker queries into structured format matching transcript data"""
     
     @staticmethod
     def parse_position(query: str) -> Optional[str]:
@@ -14,9 +13,11 @@ class HandQueryParser:
             'hijack': 'HJ',
             'cutoff': 'cutoff',
             'button': 'button',
-            'small blind': 'SB',
-            'big blind': 'BB',
-            'straddle': 'straddle'
+            'sb': 'small blind',
+            'bb': 'big blind',
+            'straddle': 'straddle',
+            '+1': '+1',  # For positions relative to UTG
+            '+2': '+2'
         }
         
         # Look for position mentions in query
@@ -42,30 +43,33 @@ class HandQueryParser:
         """Normalize card suit to proper format"""
         suits = {
             'h': 'Hearts', 'd': 'Diamonds',
-            'c': 'Clubs', 's': 'Spades'
+            'c': 'Clubs', 's': 'Spades',
+            'heart': 'Hearts', 'diamond': 'Diamonds',
+            'club': 'Clubs', 'spade': 'Spades'
         }
         return suits.get(suit.lower(), suit.title())
 
     @staticmethod
     def parse_cards(query: str) -> Optional[str]:
-        """Extract card information in proper English format matching data"""
-        # Clean the query
+        """Extract card information in proper English format"""
         query = query.lower()
         
-        # Look for patterns like "two black aces" or "ace of clubs and ace of spades"
-        pairs_pattern = r'two black aces|two red aces'
-        if re.search(pairs_pattern, query):
-            if 'black aces' in query:
-                return 'Ace of Clubs and Ace of Spades'
-            if 'red aces' in query:
-                return 'Ace of Hearts and Ace of Diamonds'
+        # Handle special patterns
+        pairs_pattern = r'(two black|two red) (aces|kings|queens|jacks)'
+        match = re.search(pairs_pattern, query)
+        if match:
+            color, rank = match.groups()
+            rank = rank.rstrip('s')  # Remove plural
+            if color == 'two black':
+                return f"{HandQueryParser.normalize_rank(rank)} of Clubs and {HandQueryParser.normalize_rank(rank)} of Spades"
+            if color == 'two red':
+                return f"{HandQueryParser.normalize_rank(rank)} of Hearts and {HandQueryParser.normalize_rank(rank)} of Diamonds"
         
         # Standard "X of Y and A of B" pattern
         pattern = r'(\w+) of (\w+) and (\w+) of (\w+)'
         match = re.search(pattern, query)
         if match:
             rank1, suit1, rank2, suit2 = match.groups()
-            # Normalize to proper format
             card1 = f"{HandQueryParser.normalize_rank(rank1)} of {HandQueryParser.normalize_suit(suit1)}"
             card2 = f"{HandQueryParser.normalize_rank(rank2)} of {HandQueryParser.normalize_suit(suit2)}"
             return f"{card1} and {card2}"
@@ -73,28 +77,113 @@ class HandQueryParser:
         return None
 
     @staticmethod
+    def parse_stack_size(query: str) -> Optional[str]:
+        """Extract stack size information"""
+        pattern = r'(\d+)\s*bb|(\$\d+)\s*stack'
+        match = re.search(pattern, query.lower())
+        if match:
+            bb_size, dollar_size = match.groups()
+            return bb_size if bb_size else dollar_size
+        return None
+
+    @staticmethod
     def parse_game_info(query: str) -> Dict[str, str]:
-        """Extract game type and stakes information"""
+        """Extract game information"""
         game_info = {}
         
-        # Look for stakes patterns like "2/3/5" or "5/10"
-        stakes_pattern = r'(?:[\$]?\d+/){1,2}[\$]?\d+'
-        stakes_match = re.search(stakes_pattern, query)
-        if stakes_match:
-            game_info['stakes'] = stakes_match.group(0)
-            
-        # Look for straddle mentions
+        # Stakes patterns
+        stakes_patterns = [
+            r'\$?\d+/\$?\d+/?\$?\d*',  # Matches 2/3/5 or 2/3
+            r'\$\d+\s*(?:max\s*)?(?:buy[\s-]*in)',  # Matches $800 max buy-in
+            r'(?:nl|pot\s*limit)\s*\d+',  # Matches NL100 or pot limit 200
+        ]
+        
+        for pattern in stakes_patterns:
+            match = re.search(pattern, query.lower())
+            if match:
+                game_info['stakes'] = match.group(0)
+                break
+        
+        # Game type
+        game_types = {
+            'cash': 'cash game',
+            'tournament': 'tournament',
+            'mtt': 'tournament',
+            'sng': 'sit-n-go',
+            'sit and go': 'sit-n-go',
+        }
+        
+        for key, value in game_types.items():
+            if key in query.lower():
+                game_info['game_type'] = value
+                break
+        
+        # Additional info
         if 'straddle' in query.lower():
             game_info['straddle'] = True
+        
+        if 'mandatory' in query.lower():
+            game_info['mandatory_straddle'] = True
             
         return game_info
 
     @staticmethod
-    def parse_query(query: str) -> Dict:
-        """Parse full query into structured format matching hand analysis data"""
-        structured_query = {
-            'position': HandQueryParser.parse_position(query),
-            'hero_cards': HandQueryParser.parse_cards(query),
-            'game_info': HandQueryParser.parse_game_info(query)
+    def parse_player_info(query: str) -> Dict[str, str]:
+        """Extract player-related information"""
+        player_info = {}
+        
+        # Number of players
+        players_pattern = r'(\d+)[- ](?:handed|player)'
+        match = re.search(players_pattern, query.lower())
+        if match:
+            player_info['num_players'] = match.group(1)
+        
+        # Villain types/tendencies
+        villains = {
+            'maniac': 'aggressive',
+            'tight': 'tight',
+            'loose': 'loose',
+            'passive': 'passive',
+            'aggressive': 'aggressive',
+            'recreational': 'recreational',
+            'reg': 'regular'
         }
-        return structured_query
+        
+        for key, value in villains.items():
+            if key in query.lower():
+                player_info['villain_type'] = value
+                break
+                
+        return player_info
+
+    @staticmethod
+    def parse_action_history(query: str) -> Dict[str, str]:
+        """Extract any action history mentioned in query"""
+        action_history = {}
+        
+        # Preflop actions
+        preflop_patterns = {
+            'open': r'(?:utg|hj|co|btn|sb|bb)\s+opens?\s+to\s+\$?\d+',
+            '3bet': r'(?:3bet|three[- ]?bet)\s+to\s+\$?\d+',
+            'call': r'(?:flat|call)(?:s|ed)?\s+(?:the\s+)?\$?\d+',
+            'raise': r'raise[ds]?\s+to\s+\$?\d+'
+        }
+        
+        for action_type, pattern in preflop_patterns.items():
+            match = re.search(pattern, query.lower())
+            if match:
+                action_history['preflop_action'] = match.group(0)
+                break
+                
+        return action_history
+
+    def parse_query(self, query: str) -> Dict:
+        """Parse full query into structured format matching transcript data"""
+        return {
+            'position': self.parse_position(query),
+            'hero_cards': self.parse_cards(query),
+            'stack_size': self.parse_stack_size(query),
+            'game_info': self.parse_game_info(query),
+            'player_info': self.parse_player_info(query),
+            'action_history': self.parse_action_history(query)
+        }

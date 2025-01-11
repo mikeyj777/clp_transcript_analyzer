@@ -1,13 +1,11 @@
 from flask import jsonify
-import os
 from typing import Dict, List, Any
 import logging
 from datetime import datetime
 from config.db import get_db_connection
-from utils.poker_embedding_processor import PokerEmbeddingProcessor
+from utils.query_embedding_processor import QueryEmbeddingProcessor
 from utils.claude_service import ClaudeService
 from data.pwds import Pwds
-from controllers.transcript_controller import TranscriptController
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -15,20 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize services
 claude_service = ClaudeService()
-embedding_processor = PokerEmbeddingProcessor(api_key=Pwds.VOYAGE_AI_API_KEY)
-tc = TranscriptController()
-
-def prepare_query_for_search(query: str) -> Dict:
-    """
-    Use Claude to prepare the query for searching similar hands
-    """
-    try:
-        response = tc.analyze_with_claude(query)
-        logging.debug(f'Claude response: {response}')
-        return response  # Consider using json.loads with proper formatting
-    except Exception as e:
-        logger.error(f"Error preparing query with Claude: {e}")
-        return {}
+query_processor = QueryEmbeddingProcessor(api_key=Pwds.VOYAGE_AI_API_KEY)
 
 def get_similar_hands(query_embedding: List[float], embedding_type: str = 'situation', num_results: int = 5) -> List[Dict[str, Any]]:
     """
@@ -38,26 +23,30 @@ def get_similar_hands(query_embedding: List[float], embedding_type: str = 'situa
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Query using vector similarity search
+        # Query using vector similarity search with added considerations for position matches
         query = """
         WITH similar_embeddings AS (
             SELECT 
                 hand_analysis_id,
-                embedding <-> %s::vector as similarity_distance
-            FROM hand_embeddings
+                embedding <-> %s::vector as similarity_distance,
+                ta.caller_cards,
+                ta.preflop_action
+            FROM hand_embeddings he
+            JOIN transcript_analysis ta ON ta.id = he.hand_analysis_id
             WHERE embedding_type = %s
             ORDER BY similarity_distance ASC
-            LIMIT %s
+            LIMIT %s * 2  -- Fetch extra results for filtering
         )
         SELECT 
             ta.*,
             se.similarity_distance
         FROM similar_embeddings se
         JOIN transcript_analysis ta ON ta.id = se.hand_analysis_id
-        ORDER BY se.similarity_distance ASC;
+        ORDER BY se.similarity_distance ASC
+        LIMIT %s;
         """
         
-        cur.execute(query, (query_embedding, embedding_type, num_results))
+        cur.execute(query, (query_embedding, embedding_type, num_results * 2, num_results))
         columns = [desc[0] for desc in cur.description]
         results = [dict(zip(columns, row)) for row in cur.fetchall()]
         
@@ -114,16 +103,17 @@ Retrieved similar hands:
 {formatted_hands}
 
 Focus on:
-1. Patterns and insights across hands
-2. The relevance based on similarity scores
-3. Key actions and decisions that worked well
-4. Common situations and strategic patterns
+1. The most relevant aspects of each hand to the query situation
+2. Key patterns in how similar situations were played
+3. Important strategic considerations
+4. Specific actionable recommendations
+5. Common mistakes to avoid
 
 Format your response with clear sections for:
-1. Overall analysis
-2. Key patterns identified
-3. Specific recommendations
-4. Important considerations"""
+1. Overall Analysis - How these hands relate to the query
+2. Key Strategic Patterns
+3. Specific Recommendations
+4. Important Considerations & Risks"""
 
         return claude_service.complete(analysis_prompt)
         
@@ -136,30 +126,17 @@ def hand_analysis(query: str, num_results: int = 5):
     Main function to analyze poker hands based on user query
     """
     try:
-        # Prepare search query
-        structured_query = prepare_query_for_search(query)
-        logger.debug(f"Structured query: {structured_query}")
-        if not structured_query:
+        # Get query embeddings
+        query_embeddings = query_processor.embed_query(query)
+        logger.debug(f"Generated embeddings for query: {query}")
+        if not query_embeddings:
             return jsonify({
                 "status": "error",
-                "result": "Unable to process query format. Please try rephrasing."
+                "result": "Unable to process query. Please try rephrasing."
             })
         
-        # Get query embeddings using hybrid chunking strategy
-        query_chunks = embedding_processor.create_hybrid_chunks(structured_query)
-        logger.debug(f"Query chunks: {query_chunks}")
-        query_embeddings = embedding_processor.get_embeddings(
-            chunks=query_chunks,
-            model="voyage-3-large",
-            input_type="query",
-            batch_size=1  # Queries are typically single items
-        )
-        logger.debug(f"Query embeddings: {query_embeddings}")
-        
-        # Get the situation embedding for similarity search
+        # Get situation embedding for similarity search
         query_vector = query_embeddings.get('situation', [])
-        logger.debug(f"Query vector: {query_vector}")
-        
         if not query_vector:
             return jsonify({
                 "status": "error",
@@ -169,7 +146,7 @@ def hand_analysis(query: str, num_results: int = 5):
         # Find similar hands
         similar_hands = get_similar_hands(
             query_vector,
-            embedding_type='situation',  # Match the chunk type we're using for comparison
+            embedding_type='situation',
             num_results=num_results
         )
         
@@ -213,9 +190,3 @@ def hand_analysis(query: str, num_results: int = 5):
             "status": "error",
             "result": "An error occurred during analysis. Please try again later."
         })
-
-def main():
-    test_query = "in the big blind with two black aces"
-
-if __name__ == "__main__":
-    main()

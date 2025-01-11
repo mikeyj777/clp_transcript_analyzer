@@ -159,14 +159,15 @@ class TranscriptController:
             response = self.claude.complete(prompt)
             # Would need to parse XML response here before returning
             # Could use xml.etree.ElementTree or similar
-            return self._parse_xml_response(response)
+            return self.parse_xml_response(response)
         except Exception as e:
             logger.error(f"Error from Claude API: {str(e)}")
             raise
 
-    def _parse_xml_response(self, response):
+    def parse_xml_response(self, response):
         """
-        Parse XML response into dictionary structure matching our database schema
+        Parse XML response into dictionary structure matching our database schema,
+        excluding None, 'Not Included', and null values
         """
         import xml.etree.ElementTree as ET
         from io import StringIO
@@ -176,23 +177,40 @@ class TranscriptController:
             tree = ET.parse(StringIO(response))
             root = tree.getroot()
             
-            # Extract values into dict matching our database structure
-            return {
-                'game_location': root.find('game_location').text,
-                'stakes': root.find('stakes').text,
-                'caller_cards': root.find('caller_cards').text,
-                'preflop_action': root.find('preflop/action').text,
-                'preflop_commentary': root.find('preflop/commentary').text,
-                'flop_cards': root.find('flop/cards').text,
-                'flop_action': root.find('flop/action').text,
-                'flop_commentary': root.find('flop/commentary').text,
-                'turn_card': root.find('turn/card').text,
-                'turn_action': root.find('turn/action').text,
-                'turn_commentary': root.find('turn/commentary').text,
-                'river_card': root.find('river/card').text,
-                'river_action': root.find('river/action').text,
-                'river_commentary': root.find('river/commentary').text
+            # Define fields to extract
+            fields = {
+                'game_location': 'game_location',
+                'stakes': 'stakes',
+                'caller_cards': 'caller_cards',
+                'preflop_action': 'preflop/action',
+                'preflop_commentary': 'preflop/commentary',
+                'flop_cards': 'flop/cards',
+                'flop_action': 'flop/action',
+                'flop_commentary': 'flop/commentary',
+                'turn_card': 'turn/card',
+                'turn_action': 'turn/action',
+                'turn_commentary': 'turn/commentary',
+                'river_card': 'river/card',
+                'river_action': 'river/action',
+                'river_commentary': 'river/commentary'
             }
+            
+            # Build dictionary, excluding invalid values
+            result = {}
+            for key, path in fields.items():
+                element = root.find(path)
+                if element is not None and element.text:
+                    # Convert to lower case for case-insensitive comparison
+                    text = element.text.strip()
+                    text_lower = text.lower()
+                    
+                    # Skip if value is None, "not included", "null", or empty
+                    if (text_lower not in ['none', 'not included', 'null', ''] and 
+                        text is not None):
+                        result[key] = text
+                        
+            return result
+            
         except Exception as e:
             logger.error(f"Error parsing XML response: {str(e)}")
             logger.debug(f"Raw response: {response}")
