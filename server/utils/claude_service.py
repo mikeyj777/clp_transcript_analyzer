@@ -45,7 +45,7 @@ class ClaudeService:
             try:
                 # Claude should return a JSON string, but let's be defensive
                 response_text = message.content[0].text
-                
+                logger.debug(f"Received Claude response: {response_text}")
                 return response_text
                 
             except json.JSONDecodeError as e:

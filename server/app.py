@@ -1,7 +1,7 @@
 # server\app.py
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from utils.read_transcript_from_yt import scrape_transcript
+from utils.read_transcript_from_yt import get_transcript
 from controllers.analysis_controller import hand_analysis
 import logging
 
@@ -34,11 +34,12 @@ def transcript_route():
             "status": "error",
             "message": "URL parameter is required"
         }), 400
-    return scrape_transcript(url)
+    return get_transcript(url)
 
 @app.route('/api/analyze', methods=['GET'])
 def transcript_analysis_route():
     query = request.args.get('userInput')
+    logger.info(f"Received query: {query}")
     if not query:
         return jsonify({
             "status": "error",

@@ -21,7 +21,7 @@ def prepare_query_for_search(query: str) -> Dict:
     Use Claude to prepare the query for searching similar hands
     """
     try:
-        prompt = f"""Convert this poker hand query into a structured format. Include all relevant fields even if empty.
+        prompt = f"""Convert this poker hand query into a structured format. These will mostly be texas hold em hands.  however, there may be some Omaha hands.  they may even be asking some poker philosophical questions.  Include all relevant fields even if empty.  It may only have partial information available for the hand or may be asking philosophical questions.  If so, make a structured response based on the portions of the poker hand provided or other information provided.
         Query: {query}
         
         Format the output as a structured hand with game_location, stakes, caller_cards, and actions/commentary for each street."""
@@ -140,7 +140,7 @@ def hand_analysis(query: str, num_results: int = 5):
     try:
         # Prepare search query
         structured_query = prepare_query_for_search(query)
-        
+        logger.debug(f"Structured query: {structured_query}")
         if not structured_query:
             return jsonify({
                 "status": "error",
@@ -149,15 +149,18 @@ def hand_analysis(query: str, num_results: int = 5):
         
         # Get query embeddings using hybrid chunking strategy
         query_chunks = embedding_processor.create_hybrid_chunks(structured_query)
+        logger.debug(f"Query chunks: {query_chunks}")
         query_embeddings = embedding_processor.get_embeddings(
             chunks=query_chunks,
             model="voyage-3-large",
             input_type="query",
             batch_size=1  # Queries are typically single items
         )
+        logger.debug(f"Query embeddings: {query_embeddings}")
         
         # Get the situation embedding for similarity search
         query_vector = query_embeddings.get('situation', [])
+        logger.debug(f"Query vector: {query_vector}")
         
         if not query_vector:
             return jsonify({
@@ -182,7 +185,7 @@ def hand_analysis(query: str, num_results: int = 5):
         analysis = analyze_hands(query, similar_hands)
         
         # Log successful analysis
-        logger.info(f"Successfully analyzed hand query: {query}")
+        logger.debug(f"Successfully analyzed hand query: {query}")
         
         return jsonify({
             "status": "success",

@@ -24,6 +24,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 -- uncomment the drop commands to remove the current table
 -- DROP INDEX hand_embeddings_hand_id_idx;
+-- DROP INDEX hand_embeddings_embedding_idx;
 -- DROP TABLE hand_embeddings;
 -- Create the table
 CREATE TABLE hand_embeddings (
