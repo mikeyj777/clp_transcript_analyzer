@@ -179,11 +179,36 @@ class HandQueryParser:
 
     def parse_query(self, query: str) -> Dict:
         """Parse full query into structured format matching transcript data"""
-        return {
-            'position': self.parse_position(query),
-            'hero_cards': self.parse_cards(query),
-            'stack_size': self.parse_stack_size(query),
-            'game_info': self.parse_game_info(query),
-            'player_info': self.parse_player_info(query),
-            'action_history': self.parse_action_history(query)
-        }
+        result = {}
+        
+        # Check position
+        position = self.parse_position(query)
+        if position is not None:
+            result['position'] = position
+            
+        # Check hero cards
+        hero_cards = self.parse_cards(query)
+        if hero_cards is not None:
+            result['hero_cards'] = hero_cards
+            
+        # Check stack size
+        stack_size = self.parse_stack_size(query)
+        if stack_size is not None:
+            result['stack_size'] = stack_size
+            
+        # Check game info
+        game_info = self.parse_game_info(query)
+        if game_info:  # Only add if dictionary is not empty
+            result['game_info'] = game_info
+            
+        # Check player info
+        player_info = self.parse_player_info(query)
+        if player_info:  # Only add if dictionary is not empty
+            result['player_info'] = player_info
+            
+        # Check action history
+        action_history = self.parse_action_history(query)
+        if action_history:  # Only add if dictionary is not empty
+            result['action_history'] = action_history
+            
+        return result

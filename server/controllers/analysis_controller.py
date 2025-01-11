@@ -64,6 +64,9 @@ def analyze_hands(query: str, hands: List[Dict[str, Any]]) -> str:
     try:
         hands_context = []
         for hand in hands:
+            hand_text = ''
+            for k, v in hand.items():
+                hand_text += f"{k}: {v}\n" 
             hand_text = (
                 f"Game: {hand['game_location']}, Stakes: {hand['stakes']}\n"
                 f"Hero Cards: {hand['caller_cards']}\n"
@@ -97,23 +100,47 @@ def analyze_hands(query: str, hands: List[Dict[str, Any]]) -> str:
         
         formatted_hands = "\n".join(hands_context)
         
-        analysis_prompt = f"""Analyze these similar poker hands in relation to the query: '{query}'
+        analysis_prompt = f"""
+        
+        The query that we're sending you will have all or a portion of a poker hand.
+        The hands will mostly be Texas Hold Em Poker, however there may be a few other variations such as Omaha.
 
-Retrieved similar hands:
-{formatted_hands}
+        
+        Analyze these similar poker hands in relation to the query: '{query}'
 
-Focus on:
-1. The most relevant aspects of each hand to the query situation
-2. Key patterns in how similar situations were played
-3. Important strategic considerations
-4. Specific actionable recommendations
-5. Common mistakes to avoid
+        Retrieved similar hands:
+        {formatted_hands}
 
-Format your response with clear sections for:
-1. Overall Analysis - How these hands relate to the query
-2. Key Strategic Patterns
-3. Specific Recommendations
-4. Important Considerations & Risks"""
+        Assume that the query containts the portion of the hand played so far.  
+        The preflop, flop, turn and river action are referred to as different streets of play.
+
+        Use the retrieved similar hands as context for your analysis.  
+
+        As an example, if the query was simply "I'm in the big blind with Ace of Spades and Ace of Clubs", 
+        the similar hands could be expected to be played in early position with a premium starting hand.  In this case, assume that this commentary is only about the preflop.  If no betting action was provided, then provide guidance on  
+
+        Provide guidance on how to play the next street of the hand.  
+        Give some discussion as to how it has been played so far.
+
+        Use the guidance from the similar hands to state how you would play the next street of the hand.  
+        If the query includes other players action, how would you react to their action?  
+        The similar hands include commentary about the recommended actions that should have been taken in similar situations.  
+        Use these as reference here when providing guidance in your respone.
+
+        If the query contains the full hand, provide your full commentary on each street as it was played.  
+
+        Focus on:
+        1. The most relevant aspects of each hand to the query situation
+        2. Key patterns in how similar situations were played
+        3. Important strategic considerations
+        4. Specific actionable recommendations
+        5. Common mistakes to avoid
+
+        Format your response with clear sections for:
+        1. Overall Analysis - How these hands relate to the query
+        2. Key Strategic Patterns
+        3. Specific Recommendations
+        4. Important Considerations & Risks"""
 
         return claude_service.complete(analysis_prompt)
         
